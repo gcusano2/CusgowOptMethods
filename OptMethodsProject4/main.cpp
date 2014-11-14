@@ -30,10 +30,16 @@ const int MaxValue = 9;
 
 int numSolutions = 0;
 
+int beginningArray[9][9];
+int endingArray[9][9];
+
+int total = 0;
+int boardCounter = 0;
+
 class board
 // Stores the entire Sudoku board
 {
-    public:
+public:
     board(int);
     void clear();
     void initialize(ifstream &fin);
@@ -49,9 +55,21 @@ class board
     bool solvedBoard();
     int squareNumber(int i, int j);
     
-    private:
+    //Added to 4B
+    int getRecursionCount() {
+        return recursionCounter;
+    }
+    void clearRecursionCount() {
+        recursionCounter = 0;
+    }
+    int goodPositionCheck(int i, int j, int value);
+    int redoCheck(int x, int y);
+    void printArray();
     
-        //Added Methods
+    
+private:
+    
+    //Added Methods
     void ConflictUpdate(int, int, int, bool);
     //Conflict Matrices
     matrix<int> Conflicts;
@@ -62,7 +80,9 @@ class board
     // The following matrices go from 1 to BoardSize in each
     // dimension, i.e., they are each (BoardSize+1) * (BoardSize+1)
     
-        matrix<ValueType> value;
+    matrix<ValueType> value;
+    matrix<int> output;
+    int recursionCounter; //counts number of recursive calls
 };
 
 board::board(int sqSize)
@@ -91,10 +111,10 @@ void board::clear()
 // Mark all possible values as legal for each board entry
 {
     for (int i = 1; i <= BoardSize; i++)
-    for (int j = 1; j <= BoardSize; j++)
-    {
-        value[i][j] = Blank;
-    }
+        for (int j = 1; j <= BoardSize; j++)
+        {
+            value[i][j] = Blank;
+        }
 }
 
 bool board::solvedBoard(){
@@ -120,7 +140,7 @@ void board::initialize(ifstream &fin)
         for (int j = 1; j <= BoardSize; j++){
             
             fin >> ch;
-        
+            
             if (ch != '.'){  // If the read char is not Blank
                 if (conflicts(i,j,ch-'0'))
                     throw rangeError("Conflict, cannot Initialize");
@@ -146,7 +166,7 @@ ostream &operator<<(ostream &ostr, vector<int> &v)
 // Overloaded output operator for vector class.
 {
     for (int i = 0; i < v.size(); i++)
-    ostr << v[i] << " ";
+        ostr << v[i] << " ";
     ostr << endl;
     return ostr;
 }
@@ -162,7 +182,7 @@ ValueType board::getCell(int i, int j)
 }
 
 void board::setCell(int i, int j, int Val){
-//Sets the cell with given inputs. Updates conflicts.
+    //Sets the cell with given inputs. Updates conflicts.
     if (i >= 1 && i <= BoardSize && j >= 1 && j <= BoardSize){
         value[i][j] = Val;
         ConflictUpdate(i, j, Val, true);
@@ -172,13 +192,13 @@ void board::setCell(int i, int j, int Val){
 }
 
 void board::clearCell(int i, int j){
-//Clears the cell at given coordinates. Updates conflicts.
+    //Clears the cell at given coordinates. Updates conflicts.
     if (i >= 1 && i <= BoardSize && j >= 1 && j <= BoardSize){
         ConflictUpdate(i, j, value[i][j], false);
         value[i][j] = 0;
     }
     else
-    throw rangeError("Cell Value out of Range");
+        throw rangeError("Cell Value out of Range");
 }
 
 bool board::isBlank(int i, int j)
@@ -199,18 +219,18 @@ void board::print()
         {
             cout << " -";
             for (int j = 1; j <= BoardSize; j++)
-            cout << "---";
+                cout << "---";
             cout << "-";
             cout << endl;
         }
         for (int j = 1; j <= BoardSize; j++)
         {
             if ((j-1) % SquareSize == 0)
-            cout << "|";
+                cout << "|";
             if (!isBlank(i,j))
-            cout << " " << getCell(i,j) << " ";
+                cout << " " << getCell(i,j) << " ";
             else
-            cout << "   ";
+                cout << "   ";
         }
         cout << "|";
         cout << endl;
@@ -218,7 +238,7 @@ void board::print()
     
     cout << " -";
     for (int j = 1; j <= BoardSize; j++)
-    cout << "---";
+        cout << "---";
     cout << "-";
     cout << endl;
 }
@@ -241,6 +261,112 @@ void board::printConflicts(){
     }
 }
 
+//*********Added for 4B***********
+
+int board::goodPositionCheck(int i, int j, int value){
+    
+    int x = (i/3)*3;
+    int y = (j/3)*3;
+    
+    for (int a=x; a< x+3; a++){
+        for (int b=y; b < y+3; b++){
+            if (endingArray[x][y] == value){
+                return 0;
+            }
+        }
+    }
+    
+    for (int m=0; m < 9; m++){
+        if(endingArray[m][j] == value || endingArray[i][m] == value){
+            return 0;
+        }
+    }
+    
+    return value;
+}
+
+int board::redoCheck(int x, int y){
+    
+    recursionCounter++;
+    int i;
+    
+    if (endingArray[x][y] == 0){
+        for(i=1; i<10;i++){
+            int valueAtSpace = goodPositionCheck(x, y, i);
+            
+            if (valueAtSpace != 0){
+                endingArray[x][y] = valueAtSpace;
+                
+                if (x==9 && y==8){ return 1; }
+                else if (x==8){
+                    if (redoCheck(0, y+1)){
+                        return 1;
+                    }
+                }
+                else{
+                    if (redoCheck(x+1, y)){
+                        return 1;
+                    }
+                }
+            }
+        }
+        
+        if (i == 10)
+        {
+            if (endingArray[x][y] != beginningArray[x][y]){
+                endingArray[x][y] = 0;
+            }
+            return 0;
+        }
+    }
+    else{
+        if (x==8 && y==8){
+            return 1;
+        }
+        else if (x==8){
+            if (redoCheck(0, y+1))
+                return 1;
+        }
+        else{
+            if (redoCheck(x+1, y))
+                return 1;
+        }
+        return 0;
+    }
+}
+
+void board::printArray(){
+    cout << "+-:";
+    for (int j = 1; j <= BoardSize; j++){
+        cout << "---";
+    }
+    cout << "-+" << endl;
+    
+    for (int i =1; i<= BoardSize; i++){
+        if (i == 4 || i == 7){
+            cout << "|";
+            for (int j=1; j < SquareSize; j++){
+                cout << "---------+";
+            }
+            cout << "---------|" << endl;
+        }
+        for (int j = 1; j <= BoardSize; j++){
+            if ((j-1) % SquareSize == 0){
+                cout << "|";
+            }
+            cout << " " << endingArray[i-1][j-1] << " ";
+        }
+        cout << "|";
+        cout << endl;
+    }
+    
+    cout << "+-";
+    for (int j=1; j <= BoardSize; j++){
+        cout<< "---";
+    }
+    cout << "-+" << endl;
+}
+
 int main()
 {
     ifstream fin;
@@ -261,15 +387,33 @@ int main()
         
         while (fin && fin.peek() != 'Z')
         {
+            boardCounter++;
+            b1.clearRecursionCount();
             b1.initialize(fin);
+            
+            for( int i=0; i < 9; i++){
+                for (int j=0; j<9; j++){
+                    endingArray[i][j] = beginningArray[i][j];
+                }
+            }
+            cout << "\nBoard " << boardCounter << endl;
             b1.print();
-            b1.printConflicts();
+            
+            b1.redoCheck(0,0);
+            cout << "\nSolved Board " << boardCounter << endl;
+            b1.printArray();
+            
+            cout << "Number of calls: " << b1.getRecursionCount() - 1 << endl;
+            total += b1.getRecursionCount()-1;
         }
+        cout << "Average number of recursive calls: " << total/ boardCounter << endl;
+        
+        
+        
+        cout << boardCounter << " boards have been solved." << endl;
     }
-    catch  (indexRangeError &ex)
-    {
+    catch (rangeError &ex){
         cout << ex.what() << endl;
         exit(1);
     }
 }
-
